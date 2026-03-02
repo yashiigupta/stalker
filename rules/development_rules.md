@@ -47,3 +47,10 @@ Each notebook must follow this structure:
 - All notebooks must be self-documenting through the novel format described above.
 - The `docs/` folder contains research documents, architecture notes, and formal write-ups.
 - The `rules/` folder contains this file and any additional project conventions.
+
+## Version Control
+
+- **Small and Modular Commits**: Every commit should represent a single logical change or a small group of related changes. 
+- Avoid monolithic "Update project" commits.
+- Commit messages should be clear and descriptive.
+- Large data files must never be committed; use the `.gitignore` setup.
