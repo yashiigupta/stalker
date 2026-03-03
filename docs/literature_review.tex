@@ -1,0 +1,62 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+
+\title{Hybrid Reinforcement Learning in Non-Stationary Financial Markets: A Multi-Decadal Review (1960--2024)}
+\author{Hybrid Temporal Forecaster Project}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+The trajectory of quantitative finance over the past six decades reflects a persistent struggle to reconcile elegant mathematical abstractions with the chaotic, non-stationary reality of global markets. This report provides an exhaustive review of these developments, tracing the path from foundational asset pricing to the sophisticated hybrid temporal forecasters that define the modern era of algorithmic trading.
+\end{abstract}
+
+\section{Foundational Theory: The Evolution of Asset Pricing Models}
+The intellectual architecture of modern finance was established during a period of relative market stability, leading to models that prioritized mathematical tractability and equilibrium.
+
+\subsection{The Efficient Market Hypothesis and the Rise of CAPM}
+The Capital Asset Pricing Model (CAPM), introduced in the early 1960s, was the first successful attempt to quantify the relationship between risk and expected return. Rooted in the Efficient Market Hypothesis (EMH).
+
+\subsection{Empirical Failures and the Shift to Multi-Factor Models}
+By the 1990s, the Fama-French Three-Factor Model (FF3) expanded CAPM to include size (SMB) and value (HML) factors.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+Model & Primary Factors & Core Assumptions & Weaknesses \\
+\midrule
+CAPM (1960s) & Market Beta & Linear risk-return & Fails at anomalies \\
+FF3 (1993) & Mkt, SMB, HML & Size/Value premiums & Ignores momentum \\
+FF5 (2015) & FF3 + RMW, CMA & Profitability/Inv & Potential tautology \\
+\bottomrule
+\end{tabular}
+\caption{Evolution of Factor Models}
+\end{table}
+
+\section{Feature Engineering: Memory and Stationarity}
+A critical barrier in financial ML is non-stationarity. Integer differentiation ($d=1$) removes memory. Fractional differentiation ($d \in [0,1]$) preserves it.
+
+\section{Non-Neural Reinforcement Learning}
+Tree-based ensemble methods, specifically Extremely Randomized Trees (Extra-Trees), offer superior performance in financial contexts due to variance reduction and sample efficiency.
+
+\section{Robust Optimization: Huber Loss}
+To handle the leptokurtic nature of returns, we use Huber Loss:
+\begin{equation}
+L_{\delta}(a) =
+\begin{cases}
+\frac{1}{2} a^2 & \text{for } |a| \le \delta \\
+\delta(|a| - \frac{1}{2}\delta) & \text{otherwise}
+\end{cases}
+\end{equation}
+
+\section{Failure Analysis and Meta-Labeling}
+Meta-labeling decoupling "Side" from "Size" to improve precision without sacrificing recall.
+
+\end{document}
