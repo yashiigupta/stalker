@@ -1,53 +1,130 @@
-\documentclass[12pt,a4paper]{article}
+\documentclass[conference]{IEEEtran}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{booktabs}
+\usepackage{cite}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning}
 
-\title{Hybrid Reinforcement Learning in Non-Stationary Financial Markets: A Multi-Decadal Review (1960--2024)}
-\author{Hybrid Temporal Forecaster Project}
-\date{\today}
+\title{Hybrid Reinforcement Learning in Non-Stationary Financial Markets: A Multi-Decadal Review of Theoretical Evolution, Feature Engineering, and Robust Optimization (1960--2024)}
+
+\author{
+\IEEEauthorblockN{Vaiditya Tanwar}
+\IEEEauthorblockA{School of Technology \\
+Rishihood University \\
+Sonipat, India \\
+EN No: 230086 \\
+vaiditya.t23csai@nst.rishihood.edu.in}
+\and
+\IEEEauthorblockN{Yashi Gupta}
+\IEEEauthorblockA{School of Technology \\
+Rishihood University \\
+Sonipat, India \\
+EN No: 230072 \\
+yashi.g23csai@nst.rishihood.edu.in}
+}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-The trajectory of quantitative finance over the past six decades reflects a persistent struggle to reconcile elegant mathematical abstractions with the chaotic, non-stationary reality of global markets. This report provides an exhaustive review of these developments, tracing the path from foundational asset pricing to the sophisticated hybrid temporal forecasters that define the modern era of algorithmic trading.
+The trajectory of quantitative finance over the past six decades reflects a persistent struggle to reconcile elegant mathematical abstractions with the chaotic, non-stationary reality of global markets. From the early equilibrium theories of the 1960s to the adaptive, non-neural reinforcement learning frameworks of 2024, the field has undergone a series of paradigm shifts. These shifts have been driven by the recurring failure of static models to account for fat-tailed distributions, regime shifts, and the inherent trade-off between signal memory and statistical stationarity. This report provides an exhaustive review of these developments, tracing the path from foundational asset pricing to the sophisticated hybrid temporal forecasters that define the modern era of algorithmic trading.
 \end{abstract}
 
+\begin{IEEEkeywords}
+Reinforcement Learning, Financial Forecasting, Fractional Differentiation, Meta-Labeling, Robust Optimization, GARCH.
+\end{IEEEkeywords}
+
+\section{Introduction}
+The intellectual architecture of modern finance was established during a period of relative market stability, leading to models that prioritized mathematical tractability and equilibrium. However, as empirical evidence mounted, the limitations of these early frameworks became increasingly apparent, necessitating a transition toward multi-factor interpretations of risk and return. The historical trajectory is characterized by an ongoing tension between the pursuit of parsimonious linear models and the reality of market complexity. For the greater part of the 20th century, the academic consensus was dominated by the Efficient Market Hypothesis (EMH).
+
 \section{Foundational Theory: The Evolution of Asset Pricing Models}
-The intellectual architecture of modern finance was established during a period of relative market stability, leading to models that prioritized mathematical tractability and equilibrium.
+The foundations of modern portfolio theory were built on the assumption that markets are perfectly competitive and all relevant information is instantaneously reflected in asset prices.
 
 \subsection{The Efficient Market Hypothesis and the Rise of CAPM}
-The Capital Asset Pricing Model (CAPM), introduced in the early 1960s, was the first successful attempt to quantify the relationship between risk and expected return. Rooted in the Efficient Market Hypothesis (EMH).
+The Capital Asset Pricing Model (CAPM), introduced in the early 1960s through the independent work of Treynor, Sharpe, Lintner, and Mossin, was the first successful attempt to quantify the relationship between risk and expected return. Under these conditions, the model posits that the expected return of an asset is a linear function of its systematic risk, represented by the market beta ($\beta$):
+\begin{equation}
+E[r_i] = r_f + \beta_i(E[r_M] - r_f)
+\end{equation}
+
+The CAPM relies on a series of stringent, often criticized assumptions, including the rationality and risk-aversion of investors, the absence of transaction costs, and the homogeneity of expectations. A fundamental tenet is that idiosyncratic risk can be diversified away, leaving only systematic risk as the basis for compensation.
 
 \subsection{Empirical Failures and the Shift to Multi-Factor Models}
-By the 1990s, the Fama-French Three-Factor Model (FF3) expanded CAPM to include size (SMB) and value (HML) factors.
+By the 1980s and 1990s, empirical testing revealed that the CAPM’s single-factor approach was insufficient to explain variations in asset returns. Research indicated that certain types of stocks consistently outperformed or underperformed predictions, leading to the identification of anomalies such as the size effect and the value effect.
+
+In response, Eugene Fama and Kenneth French introduced the Three-Factor Model (FFM) in 1993, adding Two additional factors: Small Minus Big (SMB) and High Minus Low (HML). The evolution continued in 2015 with the Five-Factor Model (FF5), incorporating profitability (RMW) and investment (CMA).
 
 \begin{table}[h]
 \centering
-\begin{tabular}{@{}llll@{}}
+\caption{Evolution of Factor Models (1960--2015)}
+\begin{tabular}{@{}lll p{2.5cm}@{}}
 \toprule
-Model & Primary Factors & Core Assumptions & Weaknesses \\
+Model & Primary Factors & Contributions & Weaknesses \\
 \midrule
-CAPM (1960s) & Market Beta & Linear risk-return & Fails at anomalies \\
-FF3 (1993) & Mkt, SMB, HML & Size/Value premiums & Ignores momentum \\
-FF5 (2015) & FF3 + RMW, CMA & Profitability/Inv & Potential tautology \\
+CAPM (1960s) & Market Beta & Linear risk-return & Fails at size/value anomalies. \\
+FF3 (1993) & Mkt, SMB, HML & Captures size/value & Ignores momentum factor. \\
+FF5 (2015) & FF3 + RMW, CMA & Adds profitability & Potential tautology. \\
 \bottomrule
 \end{tabular}
-\caption{Evolution of Factor Models}
 \end{table}
 
-\section{Feature Engineering: Memory and Stationarity}
-A critical barrier in financial ML is non-stationarity. Integer differentiation ($d=1$) removes memory. Fractional differentiation ($d \in [0,1]$) preserves it.
+\section{Feature Engineering Breakthroughs: Navigating Memory and Stationarity}
+A critical barrier to applying advanced machine learning is the non-stationarity of price series. The transformation of raw data often creates a conflict between memory and stationarity.
+
+\subsection{The Conflict of Integer Differentiation}
+Financial time series are typically non-stationary ($I(1)$). To achieve stationarity, practitioners traditionally employ integer differentiation ($d=1$), converting log-prices into log-returns. While returns are stationary ($I(0)$), this transformation effectively "wipes out" the long-range history of the series.
+
+\subsection{Fractional Differentiation and Non-Local Operators}
+Marcos López de Prado championed the use of fractional differentiation to resolve this dilemma. The differentiation operator is defined as $(1 - B)^d$:
+\begin{equation}
+(1 - B)^d = \sum_{k=0}^{\infty} \binom{d}{k} (-B)^k = \sum_{k=0}^{\infty} w_k B^k
+\end{equation}
+where $w_k = -w_{k-1} \frac{d-(k-1)}{k}$. Because $d$ is a fraction (typically $0 < d < 1$), the weights decay slowly, allowing the series to retain predictive memory while passing stationarity tests like the Augmented Dickey-Fuller (ADF) test.
+
+\subsection{Fixed-Width Window Fractional Differentiation (FFD)}
+Implementing an infinite series on finite datasets leads to discrepancies. The FFD method uses a weight threshold ($\tau$, e.g., $10^{-4}$) to determine a fixed window length $l^*$ that captures all significant weights, ensuring consistent memory across the dataset.
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[node distance=1.2cm, auto]
+    \tikzset{
+        step/.style={rectangle, draw, fill=green!10, text width=6em, text centered, rounded corners, minimum height=2em},
+        arrow/.style={draw, -latex'}
+    }
+    \node [step] (input) {Log Prices $P_t$};
+    \node [step, below=of input] (frac) {Apply $(1-B)^d$};
+    \node [step, below=of frac] (window) {Fixed Window $l^*$};
+    \node [step, below=of window] (output) {Stationary $I(d)$};
+    
+    \path [arrow] (input) -- (frac);
+    \path [arrow] (frac) -- (window);
+    \path [arrow] (window) -- (output);
+\end{tikzpicture}
+\caption{FFD Feature Transformation Pipeline}
+\end{figure}
 
 \section{Non-Neural Reinforcement Learning}
-Tree-based ensemble methods, specifically Extremely Randomized Trees (Extra-Trees), offer superior performance in financial contexts due to variance reduction and sample efficiency.
+While neural networks are powerful, their application in finance is hampered by data hunger and instability. Researchers have explored non-neural function approximators, particularly tree-based ensemble methods.
 
-\section{Robust Optimization: Huber Loss}
-To handle the leptokurtic nature of returns, we use Huber Loss:
+\subsection{Fitted Q-Iteration (FQI) as a Financial Framework}
+FQI is a model-free, off-policy batch RL algorithm that learns from historical $(x_t, u_t, r_t, x_{t+1})$ transitions. In finance, it allows for policy derivation without real-market exploration risks. A notable application is the QLBS model, which frames option pricing and hedging as a sequential decision process independent of Black-Scholes assumptions.
+
+\subsection{The Dominance of Extremely Randomized Trees}
+Tree-based ensemble methods, specifically "Extra-Trees" (Geurts et al., 2006), offer superior performance. They provide:
+\begin{itemize}
+    \item \textbf{Variance Reduction}: Decoupling tree structure from noise through extreme randomization.
+    \item \textbf{Interpretability}: Clearer decision paths for regulatory compliance.
+    \item \textbf{Sample Efficiency}: Faster convergence in low-signal environments.
+\end{itemize}
+
+\section{Robust Optimization: Handling Leptokurtic Distributions}
+Financial returns are characterized by fat tails (leptokurtosis). Standard Mean Squared Error (MSE) is highly sensitive to outliers.
+
+\subsection{M-Estimators and the Huber Loss}
+Robust frameworks use the Huber loss as a hybrid that is quadratic for small errors and linear for large errors:
 \begin{equation}
 L_{\delta}(a) =
 \begin{cases}
@@ -55,8 +132,62 @@ L_{\delta}(a) =
 \delta(|a| - \frac{1}{2}\delta) & \text{otherwise}
 \end{cases}
 \end{equation}
+This prevents extreme market movements from disproportionately influencing parameters.
 
-\section{Failure Analysis and Meta-Labeling}
-Meta-labeling decoupling "Side" from "Size" to improve precision without sacrificing recall.
+\subsection{Regularization in High Dimensions}
+L1 (Lasso) and L2 (Ridge) regularization manage collinearity when the number of predictors approaches the number of observations. Empirical evidence suggests L1 yields better risk-adjusted performance but at higher computational costs.
+
+\section{Failure Analysis: Detecting Specification Errors}
+Non-stationarity means even robust models eventually face specification errors.
+
+\subsection{Volatility Clustering and GARCH Models}
+Volatility exhibits clustering, where high volatility periods persist. GARCH models account for this time-varying variance. Hybrid forecasters use GARCH diagnostics to monitor "order flow toxicity" and trigger circuit-breakers before flash crashes.
+
+\subsection{Residual Diagnostics and Regime Shifts}
+Models use Ljung-Box tests for serial correlation and ARCH-LM tests for heteroscedasticity. If residuals fail these tests, it signals that the agent’s current policy is suboptimal for the new market environment.
+
+\section{Corrective AI: Meta-Labeling}
+Meta-labeling decoupling trade direction (side) from trade magnitude (sizing). A primary model determines the "side," while a secondary model evaluates the likelihood of success.
+
+\subsection{Impact on the Precision-Recall Trade-off}
+Meta-labeling improves precision without a corresponding "recall crash." It allows for a primary model with high recall to capture opportunities, while the secondary layer filters out noise, improving F1-scores and Sharpe Ratios.
+
+\section{Synthesis: The Modern Hybrid Temporal Forecaster}
+The architecture of a modern hybrid system follows a hierarchical structure:
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[node distance=1.5cm, auto]
+    \tikzset{
+        block/.style={rectangle, draw, fill=blue!10, text width=5em, text centered, rounded corners, minimum height=3em},
+        line/.style={draw, -latex'}
+    }
+    \node [block] (data) {Raw Market Data};
+    \node [block, right=of data] (feature) {Feature Stratum (FFD)};
+    \node [block, right=of feature] (policy) {Policy Stratum (FQI)};
+    \node [block, right=of policy] (opt) {Optimization (Huber)};
+    \node [block, right=of opt] (correct) {Corrective (Meta-Label)};
+    \node [block, below=of correct] (diag) {Diagnostic (GARCH)};
+    
+    \path [line] (data) -- (feature);
+    \path [line] (feature) -- (policy);
+    \path [line] (policy) -- (opt);
+    \path [line] (opt) -- (correct);
+    \path [line] (correct) -- (diag);
+    \path [line] (diag) -| (policy);
+\end{tikzpicture}
+\caption{Integrated Pipeline of the Hybrid Temporal Forecaster}
+\end{figure*}
+
+\begin{itemize}
+    \item \textbf{Feature Stratum}: FFD for memory preservation.
+    \item \textbf{Policy Stratum}: FQI agent for directional alpha.
+    \item \textbf{Optimization Stratum}: Huber Loss for fat-tail robustness.
+    \item \textbf{Corrective Stratum}: Meta-Labeling for dynamic sizing.
+    \item \textbf{Diagnostic Stratum}: Residual tests to trigger re-calibration.
+\end{itemize}
+
+\section{Conclusions}
+The evolution from static equilibrium to adaptive hybrids reflects a maturing field. By separating feature engineering, policy discovery, and bet sizing, these systems achieve robustness that single-layer models cannot match.
 
 \end{document}
