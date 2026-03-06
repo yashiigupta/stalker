@@ -91,13 +91,13 @@ Implementing an infinite series on finite datasets leads to discrepancies. The F
 \centering
 \begin{tikzpicture}[node distance=1.2cm, auto]
     \tikzset{
-        step/.style={rectangle, draw, fill=green!10, text width=6em, text centered, rounded corners, minimum height=2em},
+        procstep/.style={rectangle, draw, fill=green!10, text width=6em, text centered, rounded corners, minimum height=2em},
         arrow/.style={draw, -latex'}
     }
-    \node [step] (input) {Log Prices $P_t$};
-    \node [step, below=of input] (frac) {Apply $(1-B)^d$};
-    \node [step, below=of frac] (window) {Fixed Window $l^*$};
-    \node [step, below=of window] (output) {Stationary $I(d)$};
+    \node [procstep] (input) {Log Prices $P_t$};
+    \node [procstep, below=of input] (frac) {Apply $(1-B)^d$};
+    \node [procstep, below=of frac] (window) {Fixed Window $l^*$};
+    \node [procstep, below=of window] (output) {Stationary $I(d)$};
     
     \path [arrow] (input) -- (frac);
     \path [arrow] (frac) -- (window);
