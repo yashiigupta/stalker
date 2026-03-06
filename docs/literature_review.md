@@ -1,61 +1,70 @@
-# Literature Review - Hybrid Reinforcement Learning in Non-Stationary Financial Markets
+# Literature Review - Hybrid Reinforcement Learning in Non-Stationary Financial Markets: A Multi-Decadal Review (1960--2024)
 
 ## Abstract
-The trajectory of quantitative finance over the past six decades reflects a persistent struggle to reconcile elegant mathematical abstractions with the chaotic, non-stationary reality of global markets. This report provides an exhaustive review of these developments, tracing the path from foundational asset pricing to the sophisticated hybrid temporal forecasters that define the modern era of algorithmic trading.
+The trajectory of quantitative finance over the past six decades reflects a persistent struggle to reconcile elegant mathematical abstractions with the chaotic, non-stationary reality of global markets. From the early equilibrium theories of the 1960s to the adaptive, non-neural reinforcement learning frameworks of 2024, the field has undergone a series of paradigm shifts.
 
-## 1. Foundational Theory: The Evolution of Asset Pricing Models
-The intellectual architecture of modern finance was established during a period of relative market stability, leading to models that prioritized mathematical tractability and equilibrium.
+## 1. Introduction
+The intellectual architecture of modern finance was established during a period of relative market stability, leading to models that prioritized mathematical tractability and equilibrium. However, as empirical evidence mounted, those limitations became apparent.
 
-### 1.1 The Efficient Market Hypothesis and the Rise of CAPM
-The Capital Asset Pricing Model (CAPM), introduced in the early 1960s, was the first successful attempt to quantify the relationship between risk and expected return. Rooted in the Efficient Market Hypothesis (EMH).
+## 2. Foundational Theory: The Evolution of Asset Pricing Models
 
+### 2.1 The Efficient Market Hypothesis and the Rise of CAPM
+The Capital Asset Pricing Model (CAPM) introduced in the 1960s posits that the expected return of an asset is a linear function of its systematic risk ($\beta$):
 $$E[r_i] = r_f + \beta_i(E[r_M] - r_f)$$
 
-### 1.2 Empirical Failures and the Shift to Multi-Factor Models
-By the 1980s and 1990s, the Fama-French Three-Factor Model (FFM) expanded CAPM to include SMB (Size) and HML (Value) factors.
+### 2.2 Empirical Failures and Multi-Factor Models
+The Fama-French Three-Factor Model (1993) added SMB (Size) and HML (Value) factors.
 
 | Model | Primary Factors | Contributions | Identified Weaknesses |
 |:---|:---|:---|:---|
-| CAPM (1960s) | Market Beta | Linear risk-return relationship | Fails at size/value anomalies. |
-| FF3 (1993) | Mkt, SMB, HML | Captures size and value premiums | Ignores momentum factor. |
-| FF5 (2015) | FF3 + RMW, CMA | Adds profitability and investment | Potential tautology. |
+| CAPM (1960s) | Market Beta | Linear risk-return | Fails at anomalies. |
+| FF3 (1993) | Mkt, SMB, HML | Captures size/value | Ignores momentum. |
+| FF5 (2015) | FF3 + RMW, CMA | Adds profitability | Potential tautology. |
 
-## 2. Feature Engineering Breakthroughs: Navigating Memory and Stationarity
+## 3. Feature Engineering Breakthroughs: Memory and Stationarity
 
-### 2.1 The Conflict of Integer Differentiation
-Financial time series are typically non-stationary ($I(1)$). Standard integer differentiation ($d=1$) removes memory.
+### 3.1 The Conflict of Integer Differentiation
+Financial series are typically $I(1)$ (non-stationary). Standard $d=1$ differentiation removes "memory".
 
-### 2.2 Fractional Differentiation (FFD)
-Marcos López de Prado championed Fractional Differentiation to resolve the "memory vs. stationarity" dilemma.
+### 3.2 Fractional Differentiation (FFD)
+Marcos López de Prado pioneered $(1 - B)^d$ to preserve maximum memory while passing stationarity tests.
 
 ```mermaid
 graph TD
-    A[Log Prices P_t] --> B[Apply Fractional Operator 1-B^d]
-    B --> C[Fixed Window Length l*]
-    C --> D[Stationary Feature I_d]
+    A["Log Prices P_t"] --> B["Apply Fractional Operator (1-B)^d"]
+    B --> C["Fixed Window Length l*"]
+    C --> D["Stationary Feature I(d)"]
 ```
 
-## 3. Non-Neural Reinforcement Learning
-Using tree-based ensemble methods like **Extra-Trees** for FQI provides robustness, interpretability, and sample efficiency over neural networks.
+## 4. Non-Neural Reinforcement Learning
+Fitted Q-Iteration (FQI) with Extremely Randomized Trees (Extra-Trees) provides robustness, interpretability, and sample efficiency over deep learning in noisy financial data.
 
-## 4. Robust Optimization: Huber Loss
-To handle fat-tailed distributions (Leptokurtosis), we use the Huber Loss:
+## 5. Robust Optimization: Handling Leptokurtic Distributions
+Financial returns exhibit fat tails. Standard MSE is sensitive to outliers. We use **Huber Loss**:
 
 $$ L_{\delta}(a) =\begin{cases}\frac{1}{2} a^2 & \text{for } |a| \le \delta \\ \delta(|a| - \frac{1}{2}\delta) & \text{otherwise}\end{cases} $$
 
-## 5. Failure Analysis: GARCH and Meta-Labeling
-- **GARCH**: Monitoring volatility clustering and regime shifts.
-- **Meta-Labeling**: Decoupling directional "Side" from position "Size."
+## 6. Failure Analysis: Detecting Specification Errors
+- **GARCH**: Monitoring volatility clustering.
+- **Residual Diagnostics**: Ljung-Box and ARCH-LM tests to identify regime shifts.
 
-## 6. Synthesis: The Modern Hybrid Temporal Forecaster
+## 7. Corrective AI: Meta-Labeling
+Meta-labeling decouples trade direction (side) from trade magnitude (sizing).
+
+## 8. Synthesis: The Modern Hybrid Temporal Forecaster
 ```mermaid
 graph TD
-    A[Raw Data] --> B[Feature Stratum: FFD]
-    B --> C[Policy Stratum: FQI]
-    C --> D[Optimization: Huber Loss]
-    D --> E[Correctiveness: Meta-Labeling]
-    E --> F[Diagnostics: GARCH]
-    F -- Re-calibration --> C
+    A[Raw Market Data] --> B[Feature Stratum]
+    B --> C["Fractional Differentiation <br/>(Memory Preservation)"]
+    C --> D[Policy Stratum]
+    D --> E["Fitted Q-Iteration <br/>(FQI + Extra-Trees)"]
+    E --> F[Optimization Stratum]
+    F --> G["Huber Loss <br/>(Outlier Robustness)"]
+    G --> H[Corrective Stratum]
+    H --> I["Meta-Labeling <br/>(Recall/Precision Optimization)"]
+    I --> J[Diagnostic Stratum]
+    J --> K["GARCH Residual Tests <br/>(Regime Monitoring)"]
+    K --> L[Model Execution/Correction]
 ```
 
 ## Conclusion
