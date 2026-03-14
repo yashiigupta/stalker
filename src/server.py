@@ -15,7 +15,7 @@ import os
 import sys
 import json
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -90,6 +90,35 @@ def get_predictions(model_id):
     with open(path) as f:
         data = json.load(f)
     return jsonify(data)
+
+
+@app.route("/api/live-prediction/<model_id>", methods=["GET"])
+def get_live_prediction(model_id):
+    """Return the latest prediction with a real-world timestamp for live demo."""
+    path = os.path.join(PRED_DIR, f"{model_id}.json")
+    if not os.path.exists(path):
+        return jsonify({"error": f"No predictions for {model_id}"}), 404
+    with open(path) as f:
+        data = json.load(f)
+    if not data:
+        return jsonify({"error": "Empty predictions"}), 404
+
+    now = datetime.now()
+    # Cycle through predictions based on minute of the hour for continuous demo
+    idx = now.minute % len(data)
+    current = data[idx]
+    next_idx = (idx + 1) % len(data)
+    next_pt = data[next_idx]
+
+    return jsonify({
+        "model_id": model_id,
+        "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "prediction_for": (now.replace(second=0) + timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M:%S"),
+        "current_price": current["real"],
+        "predicted_price": next_pt["predicted"],
+        "delta_pct": round((next_pt["predicted"] - current["real"]) / current["real"] * 100, 4),
+        "signal": "LONG" if next_pt["predicted"] > current["real"] else "SHORT",
+    })
 
 
 @app.route("/api/training-log", methods=["GET"])

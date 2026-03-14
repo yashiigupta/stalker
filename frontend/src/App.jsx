@@ -3,12 +3,12 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import {
-  Activity, ShieldCheck, Zap, Layers, Target, RefreshCw, BarChart3, Wifi, WifiOff, Loader2
+  Activity, ShieldCheck, Zap, Layers, Target, RefreshCw, BarChart3, Wifi, WifiOff, Loader2, Clock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const API_BASE = 'http://localhost:5001/api';
-const POLL_INTERVAL = 10000; // 10 seconds
+const POLL_INTERVAL = 10000;
 
 const FREQ_LABELS = { minute: '1-Minute', daily: 'Daily', weekly: 'Weekly' };
 const FREQ_ORDER = ['minute', 'daily', 'weekly'];
@@ -20,10 +20,17 @@ const App = () => {
   const [selectedModel, setSelectedModel] = useState('M01');
   const [activeFreq, setActiveFreq] = useState('minute');
   const [predictions, setPredictions] = useState([]);
+  const [livePrediction, setLivePrediction] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Fetch model registry
+  // Tick the clock every second
+  useEffect(() => {
+    const t = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
   const fetchModels = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/models`);
@@ -33,7 +40,6 @@ const App = () => {
     } catch { setConnected(false); }
   }, []);
 
-  // Fetch predictions for selected model
   const fetchPredictions = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/predictions/${selectedModel}`);
@@ -43,7 +49,16 @@ const App = () => {
     } catch { setConnected(false); }
   }, [selectedModel]);
 
-  // Fetch training log + pipeline status
+  // Fetch live prediction every 60 seconds
+  const fetchLivePrediction = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/live-prediction/${selectedModel}`);
+      const data = await res.json();
+      if (data.model_id) setLivePrediction(data);
+      setConnected(true);
+    } catch { setConnected(false); }
+  }, [selectedModel]);
+
   const fetchStatus = useCallback(async () => {
     try {
       const [logRes, statusRes] = await Promise.all([
@@ -58,30 +73,30 @@ const App = () => {
     } catch { setConnected(false); }
   }, []);
 
-  // Initial load
   useEffect(() => { fetchModels(); }, [fetchModels]);
 
-  // Poll for fresh predictions every 10s
   useEffect(() => {
     fetchPredictions();
     const interval = setInterval(fetchPredictions, POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [fetchPredictions]);
 
-  // Poll status every 15s
+  // Live prediction: fetch immediately + every 60s
+  useEffect(() => {
+    fetchLivePrediction();
+    const interval = setInterval(fetchLivePrediction, 60000);
+    return () => clearInterval(interval);
+  }, [fetchLivePrediction]);
+
   useEffect(() => {
     fetchStatus();
     const interval = setInterval(fetchStatus, 15000);
     return () => clearInterval(interval);
   }, [fetchStatus]);
 
-  // Sync button handler
   const handleSync = async () => {
     setSyncing(true);
-    try {
-      await fetch(`${API_BASE}/sync`, { method: 'POST' });
-    } catch {}
-    // Poll quickly until done
+    try { await fetch(`${API_BASE}/sync`, { method: 'POST' }); } catch {}
     const check = setInterval(async () => {
       try {
         const res = await fetch(`${API_BASE}/status`);
@@ -91,6 +106,7 @@ const App = () => {
           clearInterval(check);
           setSyncing(false);
           fetchPredictions();
+          fetchLivePrediction();
           fetchStatus();
         }
       } catch {}
@@ -99,9 +115,6 @@ const App = () => {
 
   const currentConfig = models.find(m => m.id === selectedModel) || {};
   const filteredModels = models.filter(m => m.freq === activeFreq);
-  const lastReal = predictions.length ? predictions[predictions.length - 1].real : 0;
-  const lastPred = predictions.length ? predictions[predictions.length - 1].predicted : 0;
-  const delta = lastReal !== 0 ? ((lastPred - lastReal) / lastReal * 100).toFixed(4) : '0';
 
   return (
     <div className="dashboard-container">
@@ -114,17 +127,12 @@ const App = () => {
           ) : (
             <><WifiOff size={14} color="var(--accent-red)" /><span style={{ fontSize: '0.8rem', color: 'var(--accent-red)' }}>OFFLINE</span></>
           )}
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            style={{
-              padding: '0.4rem 1rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: 600,
-              border: '1px solid var(--accent-blue)', cursor: syncing ? 'not-allowed' : 'pointer',
-              background: syncing ? 'rgba(0,210,255,0.2)' : 'transparent',
-              color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '0.4rem',
-              transition: 'all 0.2s ease',
-            }}
-          >
+          <button onClick={handleSync} disabled={syncing} style={{
+            padding: '0.4rem 1rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: 600,
+            border: '1px solid var(--accent-blue)', cursor: syncing ? 'not-allowed' : 'pointer',
+            background: syncing ? 'rgba(0,210,255,0.2)' : 'transparent',
+            color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '0.4rem',
+          }}>
             {syncing ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
             {syncing ? 'Syncing...' : 'Sync All'}
           </button>
@@ -132,76 +140,132 @@ const App = () => {
       </header>
 
       <div className="grid-layout">
-        {/* Frequency Tabs + Pipeline Info */}
-        <div className="card hero-card" style={{ display: 'flex', gap: '1rem', padding: '1rem 1.5rem', alignItems: 'center' }}>
+        {/* ===== LIVE PREDICTION HERO ===== */}
+        <motion.div
+          className="card hero-card"
+          style={{
+            background: 'linear-gradient(135deg, rgba(0,210,255,0.05) 0%, rgba(0,0,0,0) 60%)',
+            border: '1px solid rgba(0,210,255,0.15)',
+            padding: '1.5rem',
+          }}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <Clock size={18} color="var(--accent-blue)" />
+                <span style={{ fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.05em' }}>LIVE PREDICTION</span>
+                <div className="live-indicator" style={{ marginLeft: '0.5rem' }}></div>
+              </div>
+
+              {livePrediction ? (
+                <div style={{ display: 'flex', gap: '3rem', alignItems: 'flex-end' }}>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>PREDICTION GENERATED AT</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 700, fontFamily: 'monospace', color: '#fff' }}>
+                      {livePrediction.timestamp}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>FORECASTING FOR</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 700, fontFamily: 'monospace', color: 'var(--accent-blue)' }}>
+                      {livePrediction.prediction_for}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>SIGNAL</div>
+                    <div style={{
+                      fontSize: '1.5rem', fontWeight: 800,
+                      color: livePrediction.signal === 'LONG' ? 'var(--accent-green)' : 'var(--accent-red)',
+                    }}>
+                      {livePrediction.signal}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>PRICE NOW</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>${livePrediction.current_price.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>PREDICTED</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--accent-blue)' }}>${livePrediction.predicted_price.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>ALPHA</div>
+                    <div style={{
+                      fontSize: '1.3rem', fontWeight: 700,
+                      color: livePrediction.delta_pct > 0 ? 'var(--accent-green)' : 'var(--accent-red)',
+                    }}>{livePrediction.delta_pct > 0 ? '+' : ''}{livePrediction.delta_pct}%</div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ color: 'var(--text-secondary)' }}>Connecting to backend...</div>
+              )}
+            </div>
+
+            {/* Live ticking clock */}
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>WALL CLOCK (IST)</div>
+              <div style={{ fontSize: '2rem', fontWeight: 800, fontFamily: 'monospace', color: '#fff', letterSpacing: '0.05em' }}>
+                {currentTime.toLocaleTimeString('en-IN', { hour12: false })}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                {currentTime.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+              </div>
+              <div style={{ fontSize: '0.6rem', color: 'var(--accent-blue)', marginTop: '0.25rem' }}>
+                Next refresh in {60 - currentTime.getSeconds()}s
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Frequency Tabs */}
+        <div className="card hero-card" style={{ display: 'flex', gap: '1rem', padding: '0.75rem 1.5rem', alignItems: 'center' }}>
           {FREQ_ORDER.map(freq => (
             <button key={freq} onClick={() => {
               setActiveFreq(freq);
               const first = models.find(m => m.freq === freq);
               if (first) setSelectedModel(first.id);
             }} style={{
-              padding: '0.5rem 1.5rem', borderRadius: '0.5rem', fontSize: '0.85rem', fontWeight: 600,
+              padding: '0.4rem 1.2rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: 600,
               border: activeFreq === freq ? '1px solid var(--accent-blue)' : '1px solid #333',
               background: activeFreq === freq ? 'rgba(0,210,255,0.1)' : 'transparent',
               color: activeFreq === freq ? 'var(--accent-blue)' : 'var(--text-secondary)',
-              cursor: 'pointer', transition: 'all 0.2s ease',
+              cursor: 'pointer',
             }}>
               {FREQ_LABELS[freq]}
             </button>
           ))}
-          <div style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-secondary)', textAlign: 'right' }}>
+          <div style={{ marginLeft: 'auto', fontSize: '0.65rem', color: 'var(--text-secondary)', textAlign: 'right' }}>
             <div>Auto-retrain: {pipelineStatus.schedule || 'Every 1h'}</div>
             <div>Last: {pipelineStatus.last_train ? new Date(pipelineStatus.last_train).toLocaleTimeString() : 'Pending...'}</div>
           </div>
         </div>
 
-        {/* Model Cards Row */}
-        <div className="card hero-card" style={{ display: 'flex', gap: '0.75rem', overflowX: 'auto', padding: '1rem' }}>
+        {/* Model Cards */}
+        <div className="card hero-card" style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', padding: '0.75rem' }}>
           {filteredModels.map(m => {
             const result = trainingLog.results?.find(r => r.id === m.id);
             return (
               <motion.div key={m.id} onClick={() => setSelectedModel(m.id)} whileHover={{ scale: 1.03 }}
                 style={{
-                  minWidth: '130px', padding: '0.75rem', borderRadius: '0.75rem', cursor: 'pointer',
+                  minWidth: '120px', padding: '0.6rem', borderRadius: '0.5rem', cursor: 'pointer',
                   border: selectedModel === m.id ? '1px solid var(--accent-blue)' : '1px solid #333',
                   background: selectedModel === m.id ? 'rgba(0,210,255,0.08)' : '#1a1a20',
-                  transition: 'all 0.2s ease',
                 }}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{m.id}</div>
-                <div style={{ fontSize: '1rem', fontWeight: 700 }}>{m.ticker}</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--accent-blue)' }}>t+{m.horizon} | {m.engine}</div>
-                {result && <div style={{ fontSize: '0.65rem', color: 'var(--accent-green)', marginTop: '0.25rem' }}>RMSE: {result.rmse?.toFixed(4)}</div>}
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{m.id}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>{m.ticker}</div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--accent-blue)' }}>t+{m.horizon} | {m.engine}</div>
+                {result && <div style={{ fontSize: '0.6rem', color: 'var(--accent-green)', marginTop: '0.15rem' }}>RMSE: {result.rmse?.toFixed(4)}</div>}
               </motion.div>
             );
           })}
         </div>
 
-        {/* Signal Panel */}
-        <motion.div className="card signal-card" key={selectedModel} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="h2"><Target size={16} /> {currentConfig.id} Forecaster</div>
-          <div className={`signal-direction ${delta > 0 ? 'direction-buy' : 'direction-sell'}`}>
-            {delta > 0 ? 'LONG' : 'SHORT'}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span className="stat-label">Real Price</span>
-              <span className="stat-value">${lastReal.toFixed(2)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span className="stat-label">Predicted</span>
-              <span className="stat-value" style={{ color: 'var(--accent-blue)' }}>${lastPred.toFixed(2)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #333', paddingTop: '0.4rem' }}>
-              <span className="stat-label">Alpha</span>
-              <span className="stat-value" style={{ color: delta > 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>{delta}%</span>
-            </div>
-          </div>
-        </motion.div>
-
         {/* Dual-Line Chart */}
         <motion.div className="card chart-card" key={`chart-${selectedModel}`} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
           <div className="h2">{currentConfig.ticker} | {FREQ_LABELS[currentConfig.freq]} | t+{currentConfig.horizon}</div>
-          <div style={{ height: '300px', width: '100%' }}>
+          <div style={{ height: '280px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={predictions}>
                 <XAxis dataKey="time" hide />
@@ -215,59 +279,39 @@ const App = () => {
           </div>
         </motion.div>
 
-        {/* Pipeline Status */}
+        {/* Bottom Panels */}
         <div className="card log-card">
-          <div className="h2"><Activity size={16} /> Pipeline Status</div>
+          <div className="h2"><Activity size={16} /> Pipeline</div>
           {pipelineStatus.is_running ? (
             <div className="regime-alert" style={{ background: 'rgba(255,165,0,0.1)', borderColor: 'rgba(255,165,0,0.2)', color: '#ffb84d' }}>
-              <Loader2 size={16} className="spin" />
-              <span>Retraining in progress...</span>
+              <Loader2 size={16} className="spin" /><span>Retraining...</span>
             </div>
           ) : (
             <div className="regime-alert" style={{ background: 'rgba(0,255,170,0.1)', borderColor: 'rgba(0,255,170,0.2)', color: 'var(--accent-green)' }}>
-              <ShieldCheck size={16} />
-              <span>{pipelineStatus.models_trained || 15} models converged</span>
+              <ShieldCheck size={16} /><span>{pipelineStatus.models_trained || 15} converged</span>
             </div>
           )}
-          <div style={{ marginTop: '0.75rem' }}>
-            <div className="signal-log-item">
-              <span className="stat-label">Schedule</span>
-              <span className="stat-value" style={{ fontSize: '0.85rem' }}>Every 1h</span>
-            </div>
-            <div className="signal-log-item">
-              <span className="stat-label">Last Fetch</span>
-              <span className="stat-value" style={{ fontSize: '0.85rem' }}>{pipelineStatus.last_fetch ? new Date(pipelineStatus.last_fetch).toLocaleTimeString() : '---'}</span>
-            </div>
-            <div className="signal-log-item">
-              <span className="stat-label">Last Train</span>
-              <span className="stat-value" style={{ fontSize: '0.85rem' }}>{pipelineStatus.last_train ? new Date(pipelineStatus.last_train).toLocaleTimeString() : '---'}</span>
-            </div>
-          </div>
         </div>
 
-        {/* Training Results */}
         <div className="card" style={{ gridColumn: 'span 4' }}>
-          <div className="h2"><BarChart3 size={16} /> Training RMSE</div>
-          <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+          <div className="h2"><BarChart3 size={16} /> RMSE</div>
+          <div style={{ maxHeight: '140px', overflowY: 'auto' }}>
             {trainingLog.results?.map((r, i) => (
               <div key={i} className="signal-log-item">
-                <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{r.id}</span>
-                <span className="stat-value" style={{ fontSize: '0.85rem', color: 'var(--accent-green)' }}>
-                  {r.rmse ? r.rmse.toFixed(4) : 'META'}
-                </span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{r.id}</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--accent-green)' }}>{r.rmse ? r.rmse.toFixed(4) : 'META'}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Model Inventory */}
         <div className="card" style={{ gridColumn: 'span 4' }}>
-          <div className="h2"><Layers size={16} /> Model Inventory</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem' }}>
+          <div className="h2"><Layers size={16} /> Inventory</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.25rem' }}>
             {models.map(m => (
               <div key={m.id} onClick={() => { setSelectedModel(m.id); setActiveFreq(m.freq); }}
                 style={{
-                  padding: '0.2rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.65rem', cursor: 'pointer',
+                  padding: '0.15rem 0.4rem', borderRadius: '0.2rem', fontSize: '0.6rem', cursor: 'pointer',
                   color: selectedModel === m.id ? 'var(--accent-blue)' : 'var(--text-secondary)',
                   border: `1px solid ${selectedModel === m.id ? 'var(--accent-blue)' : '#333'}`,
                 }}>
