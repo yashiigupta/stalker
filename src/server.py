@@ -81,11 +81,41 @@ def _get_prediction_for_now(model_id):
 
 
 def _tick_predictions():
-    """Called every 30 seconds: generates a new prediction and appends to history."""
+    """Called every 30 seconds. Prediction line leads real by 1 tick.
+
+    How it works:
+      - Each tick FIRST backfills the 'real' price on the previous leading point
+      - Then adds a NEW point where 'predicted' is set but 'real' is null
+      - Result: on the chart, the blue (predicted) line is always 1 step
+        ahead of the white (real) line.
+    """
+    import numpy as np
     for m in MODEL_REGISTRY:
-        pred = _get_prediction_for_now(m["id"])
-        if pred:
-            prediction_history[m["id"]].append(pred)
+        path = os.path.join(PRED_DIR, f"{m['id']}.json")
+        if not os.path.exists(path):
+            continue
+        with open(path) as f:
+            data = json.load(f)
+        if not data:
+            continue
+
+        now = datetime.now()
+        idx = (now.hour * 60 + now.minute) % len(data)
+        next_idx = (idx + 1) % len(data)
+        noise = np.random.normal(0, 0.02)
+
+        history = prediction_history[m["id"]]
+
+        # Step 1: Backfill real on the previous leading point (if it exists)
+        if len(history) > 0 and history[-1]["real"] is None:
+            history[-1]["real"] = round(data[idx]["real"] + noise, 2)
+
+        # Step 2: Add a new point with prediction only (real comes next tick)
+        history.append({
+            "time": (now + timedelta(seconds=30)).strftime("%H:%M:%S"),
+            "real": None,  # Will be filled on next tick
+            "predicted": round(data[next_idx]["predicted"] + noise, 2),
+        })
 
 
 def run_fast_pipeline():
