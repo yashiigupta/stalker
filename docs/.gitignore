@@ -1,0 +1,6 @@
+*.aux
+*.log
+*.out
+temp*
+*.mmdc
+gamma_ppt_prompt.md
