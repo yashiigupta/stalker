@@ -48,8 +48,11 @@ FAST_MODELS = [
 ]
 
 
+tick_counter = 0
+
 def _get_prediction_for_now(model_id):
     """Get a unique prediction for the current minute."""
+    global tick_counter
     path = os.path.join(PRED_DIR, f"{model_id}.json")
     if not os.path.exists(path):
         return None
@@ -59,9 +62,8 @@ def _get_prediction_for_now(model_id):
         return None
 
     now = datetime.now()
-    # Use minute * 60 + second to advance through data faster for demo
-    # This ensures even within the same minute, the prediction feels alive
-    idx = (now.hour * 60 + now.minute) % len(data)
+    # Use global tick counter to advance gracefully through predictions
+    idx = tick_counter % len(data)
     next_idx = (idx + 1) % len(data)
 
     current = data[idx]
@@ -80,16 +82,16 @@ def _get_prediction_for_now(model_id):
     }
 
 
-def _tick_predictions():
-    """Called every 30 seconds. Prediction line leads real by 1 tick.
-
-    How it works:
-      - Each tick FIRST backfills the 'real' price on the previous leading point
-      - Then adds a NEW point where 'predicted' is set but 'real' is null
-      - Result: on the chart, the blue (predicted) line is always 1 step
-        ahead of the white (real) line.
-    """
+def _tick_predictions(simulator_time=None):
+    """Called every 30 seconds. Prediction line leads real by 1 tick."""
+    global tick_counter
     import numpy as np
+
+    if simulator_time is None:
+        tick_time = datetime.now()
+    else:
+        tick_time = simulator_time
+
     for m in MODEL_REGISTRY:
         path = os.path.join(PRED_DIR, f"{m['id']}.json")
         if not os.path.exists(path):
@@ -99,23 +101,21 @@ def _tick_predictions():
         if not data:
             continue
 
-        now = datetime.now()
-        idx = (now.hour * 60 + now.minute) % len(data)
+        idx = tick_counter % len(data)
         next_idx = (idx + 1) % len(data)
         noise = np.random.normal(0, 0.02)
 
         history = prediction_history[m["id"]]
 
-        # Step 1: Backfill real on the previous leading point (if it exists)
         if len(history) > 0 and history[-1]["real"] is None:
             history[-1]["real"] = round(data[idx]["real"] + noise, 2)
 
-        # Step 2: Add a new point with prediction only (real comes next tick)
         history.append({
-            "time": (now + timedelta(seconds=30)).strftime("%H:%M:%S"),
-            "real": None,  # Will be filled on next tick
+            "time": (tick_time + timedelta(seconds=30)).strftime("%H:%M:%S"),
+            "real": None,
             "predicted": round(data[next_idx]["predicted"] + noise, 2),
         })
+    tick_counter += 1
 
 
 def run_fast_pipeline():
@@ -260,8 +260,11 @@ if __name__ == "__main__":
     print("  API: http://localhost:5001")
     print("=" * 60)
 
-    # Seed prediction history with existing data on startup
-    _tick_predictions()
+    # Pre-fill history with the last 30 minutes (60 points) so the graph looks rich immediately
+    startup_time = datetime.now()
+    for i in range(60):
+        past_time = startup_time - timedelta(seconds=30 * (60 - i))
+        _tick_predictions(simulator_time=past_time)
 
     # Run fast pipeline on startup (5 models, quick)
     t = threading.Thread(target=run_fast_pipeline, daemon=True)
