@@ -45,6 +45,11 @@ MODEL_REGISTRY = [
     {"id": "M13", "ticker": "GLD",  "freq": "daily",  "horizon": 1, "engine": "LGBM"},
     {"id": "M14", "ticker": "GLD",  "freq": "weekly", "horizon": 1, "engine": "LGBM"},
     {"id": "M15", "ticker": "ENSEMBLE", "freq": "daily", "horizon": 1, "engine": "META"},
+    {"id": "H01", "ticker": "SPY",  "freq": "hourly", "horizon": 1, "engine": "VAR+LGBM"},
+    {"id": "H02", "ticker": "AAPL", "freq": "hourly", "horizon": 1, "engine": "LGBM"},
+    {"id": "H03", "ticker": "MSFT", "freq": "hourly", "horizon": 1, "engine": "LGBM"},
+    {"id": "H04", "ticker": "JPM",  "freq": "hourly", "horizon": 1, "engine": "LGBM"},
+    {"id": "H05", "ticker": "GLD",  "freq": "hourly", "horizon": 1, "engine": "LGBM"},
 ]
 
 TICKERS = ["AAPL", "MSFT", "JPM", "SPY", "GLD"]

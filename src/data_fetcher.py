@@ -23,6 +23,7 @@ RAW_DIR = os.path.join(BASE_DIR, "data", "raw")
 
 CONFIGS = {
     "minute": {"period": "7d", "interval": "1m"},
+    "hourly": {"period": "2y", "interval": "1h"},
     "daily": {"period": "20y", "interval": "1d"},
 }
 
