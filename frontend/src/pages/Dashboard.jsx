@@ -3,7 +3,8 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { Settings, Play, Square, Activity, Database, ArrowUpRight, ArrowDownRight, RefreshCw, Zap } from 'lucide-react';
 
 const API_BASE = 'http://localhost:5001/api';
-const FREQ_ORDER = ['minute', 'daily', 'weekly'];
+const FREQ_ORDER = ['minute', 'hourly', 'daily', 'weekly'];
+const RATAN_MODEL_IDS = ['R01', 'R02', 'R03', 'R04', 'R05'];
 
 const rHex = () => Math.random().toString(16).slice(2, 8).toUpperCase();
 
@@ -36,6 +37,9 @@ const Dashboard = () => {
   const [liveHistory, setLiveHistory] = useState([]);
   const [livePrediction, setLivePrediction] = useState(null);
   const [orderStream, setOrderStream] = useState([]);
+  const [activeEngine, setActiveEngine] = useState('lgbm');
+  const [attentionMap, setAttentionMap] = useState(null);
+  const [currentRegime, setCurrentRegime] = useState(null);
 
   const fetchModels = useCallback(async () => {
     try { setModels(await (await fetch(`${API_BASE}/models`)).json()); } catch {}
@@ -70,14 +74,31 @@ const Dashboard = () => {
   const fetchStatus = useCallback(async () => {
     try {
       setTrainingLog(await (await fetch(`${API_BASE}/training-log`)).json());
-      setPipelineStatus(await (await fetch(`${API_BASE}/status`)).json());
+      const status = await (await fetch(`${API_BASE}/status`)).json();
+      setPipelineStatus(status);
+      setCurrentRegime(status.current_regime || null);
     } catch {}
   }, []);
+
+  const fetchAttentionMap = useCallback(async () => {
+    if (!selectedModel.startsWith('R')) { setAttentionMap(null); return; }
+    try {
+      const res = await fetch(`${API_BASE}/attention-map/${selectedModel}`);
+      if (!res.ok) { setAttentionMap(null); return; }
+      const data = await res.json();
+      setAttentionMap(data);
+    } catch { setAttentionMap(null); }
+  }, [selectedModel]);
 
   useEffect(() => { fetchModels(); fetchStatus(); }, [fetchModels, fetchStatus]);
   useEffect(() => { fetchHistory(); const intv = setInterval(fetchHistory, 5000); return () => clearInterval(intv); }, [fetchHistory]);
   useEffect(() => { fetchLivePrediction(); const intv = setInterval(fetchLivePrediction, 30000); return () => clearInterval(intv); }, [fetchLivePrediction]);
   useEffect(() => { fetchStatus(); const intv = setInterval(fetchStatus, 10000); return () => clearInterval(intv); }, [fetchStatus]);
+  useEffect(() => { fetchAttentionMap(); }, [fetchAttentionMap]);
+  useEffect(() => {
+    if (RATAN_MODEL_IDS.includes(selectedModel)) { setActiveEngine('ratan'); }
+    else { setActiveEngine('lgbm'); }
+  }, [selectedModel]);
 
   const currentConfig = models.find(m => m.id === selectedModel) || {};
   const isUp = livePrediction?.delta_pct > 0;
@@ -97,8 +118,19 @@ const Dashboard = () => {
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {currentRegime && (
+            <div className="s-badge" style={{
+              padding: '6px 14px',
+              border: `1px solid ${currentRegime === 'bull' ? 'rgba(16, 185, 129, 0.3)' : currentRegime === 'bear' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+              color: currentRegime === 'bull' ? 'var(--accent-success)' : currentRegime === 'bear' ? 'var(--accent-danger)' : '#f59e0b',
+              background: currentRegime === 'bull' ? 'rgba(16, 185, 129, 0.1)' : currentRegime === 'bear' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+              textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 600
+            }}>
+              {currentRegime}
+            </div>
+          )}
           <div className="s-badge" style={{ padding: '6px 14px' }}>
-             <Activity size={14} color="var(--accent-primary)" /> {pipelineStatus.models_trained || 5} / 15 CONVERGED
+             <Activity size={14} color="var(--accent-primary)" /> {pipelineStatus.models_trained || 5} / 25 CONVERGED
           </div>
           <button 
              className="s-btn s-btn-secondary" 
@@ -120,24 +152,55 @@ const Dashboard = () => {
           
           <div className="s-card" style={{ padding: '1rem' }}>
              <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}><Database size={14} /> Pipelines</h3>
+             {/* Engine Toggle */}
              <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '6px', padding: '4px', display: 'flex', marginBottom: '1rem' }}>
-                {FREQ_ORDER.map(f => (
-                  <button key={f} onClick={() => { setActiveFreq(f); const found = models.find(m => m.freq === f); if(found) setSelectedModel(found.id); }}
-                    style={{ flex: 1, padding: '6px 0', border: 'none', background: activeFreq === f ? 'var(--border-focus)' : 'transparent', color: activeFreq === f ? '#fff' : 'var(--text-tertiary)', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
-                    {f.charAt(0).toUpperCase() + f.slice(1)}
-                  </button>
-                ))}
-             </div>
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-               {models.filter(m => m.freq === activeFreq).map(m => (
-                 <button key={m.id} onClick={() => setSelectedModel(m.id)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '0.75rem 1rem', background: selectedModel === m.id ? 'var(--border-subtle)' : 'transparent', border: '1px solid transparent', borderColor: selectedModel === m.id ? 'var(--border-focus)' : 'transparent', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }}>
-                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: selectedModel === m.id ? 'var(--accent-primary)' : 'var(--border-focus)' }}></div>
-                     <span style={{ fontSize: '0.875rem', fontWeight: 500, color: selectedModel === m.id ? '#fff' : 'var(--text-secondary)' }}>{m.ticker}</span>
-                   </div>
-                   <span className="text-mono" style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{m.id}</span>
+               {['lgbm', 'ratan'].map(eng => (
+                 <button key={eng} onClick={() => {
+                   setActiveEngine(eng);
+                   if (eng === 'ratan') { setSelectedModel('R01'); }
+                   else { const found = models.find(m => !RATAN_MODEL_IDS.includes(m.id) && m.freq === activeFreq); if (found) setSelectedModel(found.id); }
+                 }}
+                   style={{ flex: 1, padding: '6px 0', border: 'none', background: activeEngine === eng ? 'var(--border-focus)' : 'transparent', color: activeEngine === eng ? '#fff' : 'var(--text-tertiary)', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
+                   {eng === 'lgbm' ? 'LightGBM' : 'RATAN'}
                  </button>
                ))}
+             </div>
+             {/* Freq tabs -- only for LightGBM engine */}
+             {activeEngine === 'lgbm' && (
+               <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '6px', padding: '4px', display: 'flex', marginBottom: '1rem' }}>
+                  {FREQ_ORDER.map(f => (
+                    <button key={f} onClick={() => { setActiveFreq(f); const found = models.find(m => m.freq === f && !RATAN_MODEL_IDS.includes(m.id)); if(found) setSelectedModel(found.id); }}
+                      style={{ flex: 1, padding: '6px 0', border: 'none', background: activeFreq === f ? 'var(--border-focus)' : 'transparent', color: activeFreq === f ? '#fff' : 'var(--text-tertiary)', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
+                      {f.charAt(0).toUpperCase() + f.slice(1)}
+                    </button>
+                  ))}
+               </div>
+             )}
+             {/* Model list */}
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+               {activeEngine === 'lgbm'
+                 ? models.filter(m => m.freq === activeFreq && !RATAN_MODEL_IDS.includes(m.id)).map(m => (
+                   <button key={m.id} onClick={() => setSelectedModel(m.id)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '0.75rem 1rem', background: selectedModel === m.id ? 'var(--border-subtle)' : 'transparent', border: '1px solid transparent', borderColor: selectedModel === m.id ? 'var(--border-focus)' : 'transparent', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }}>
+                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: selectedModel === m.id ? 'var(--accent-primary)' : 'var(--border-focus)' }}></div>
+                       <span style={{ fontSize: '0.875rem', fontWeight: 500, color: selectedModel === m.id ? '#fff' : 'var(--text-secondary)' }}>{m.ticker}</span>
+                     </div>
+                     <span className="text-mono" style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{m.id}</span>
+                   </button>
+                 ))
+                 : RATAN_MODEL_IDS.map(rid => {
+                   const rm = models.find(m => m.id === rid);
+                   return (
+                     <button key={rid} onClick={() => setSelectedModel(rid)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '0.75rem 1rem', background: selectedModel === rid ? 'var(--border-subtle)' : 'transparent', border: '1px solid transparent', borderColor: selectedModel === rid ? 'var(--border-focus)' : 'transparent', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }}>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: selectedModel === rid ? 'var(--accent-success)' : 'var(--border-focus)' }}></div>
+                         <span style={{ fontSize: '0.875rem', fontWeight: 500, color: selectedModel === rid ? '#fff' : 'var(--text-secondary)' }}>{rm?.ticker || rid}</span>
+                       </div>
+                       <span className="text-mono" style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{rid}</span>
+                     </button>
+                   );
+                 })
+               }
              </div>
           </div>
 
@@ -215,6 +278,43 @@ const Dashboard = () => {
               </ResponsiveContainer>
             </div>
           </div>
+
+          {/* Attention Heatmap (RATAN models only) */}
+          {selectedModel.startsWith('R') && attentionMap && attentionMap.assets && attentionMap.weights && (
+            <div className="s-card" style={{ padding: 0 }}>
+              <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>Cross-Asset Attention Weights</div>
+              </div>
+              <div style={{ padding: '1.25rem', overflowX: 'auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `auto ${attentionMap.assets.map(() => '1fr').join(' ')}`, gap: '2px', fontFamily: 'JetBrains Mono', fontSize: '0.7rem' }}>
+                  {/* Header row */}
+                  <div style={{ padding: '8px 12px' }}></div>
+                  {attentionMap.assets.map(asset => (
+                    <div key={`col-${asset}`} style={{ padding: '8px 6px', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.7rem' }}>{asset}</div>
+                  ))}
+                  {/* Data rows */}
+                  {attentionMap.assets.map((rowAsset, ri) => (
+                    <React.Fragment key={`row-${rowAsset}`}>
+                      <div style={{ padding: '8px 12px', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', fontSize: '0.7rem' }}>{rowAsset}</div>
+                      {attentionMap.assets.map((colAsset, ci) => {
+                        const weight = attentionMap.weights[ri]?.[ci] ?? 0;
+                        const alpha = Math.min(Math.max(weight, 0.05), 1);
+                        return (
+                          <div key={`cell-${ri}-${ci}`} style={{
+                            padding: '8px 6px', textAlign: 'center', color: 'var(--text-primary)',
+                            background: `rgba(59, 130, 246, ${alpha.toFixed(2)})`,
+                            borderRadius: '4px', fontWeight: 500
+                          }}>
+                            {weight.toFixed(2)}
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Order Book Table */}
           <div className="s-card" style={{ padding: 0 }}>
