@@ -1,7 +1,7 @@
 """
 model_factory.py -- Multi-Model Training Factory
 
-Trains 15 models across multiple horizons, frequencies, and assets.
+Trains 25 models across multiple horizons, frequencies, and assets.
 Exports predictions to data/predictions/{MODEL_ID}.json for the dashboard.
 
 Usage:
@@ -50,6 +50,11 @@ MODEL_REGISTRY = [
     {"id": "H03", "ticker": "MSFT", "freq": "hourly", "horizon": 1, "engine": "LGBM"},
     {"id": "H04", "ticker": "JPM",  "freq": "hourly", "horizon": 1, "engine": "LGBM"},
     {"id": "H05", "ticker": "GLD",  "freq": "hourly", "horizon": 1, "engine": "LGBM"},
+    {"id": "R01", "ticker": "SPY",  "freq": "daily",  "horizon": 1, "engine": "RATAN"},
+    {"id": "R02", "ticker": "AAPL", "freq": "daily",  "horizon": 1, "engine": "RATAN"},
+    {"id": "R03", "ticker": "MSFT", "freq": "daily",  "horizon": 1, "engine": "RATAN"},
+    {"id": "R04", "ticker": "JPM",  "freq": "daily",  "horizon": 1, "engine": "RATAN"},
+    {"id": "R05", "ticker": "GLD",  "freq": "daily",  "horizon": 1, "engine": "RATAN"},
 ]
 
 TICKERS = ["AAPL", "MSFT", "JPM", "SPY", "GLD"]
@@ -239,10 +244,30 @@ def train_ensemble(model_cfg):
     return {"id": mid, "rmse": 0.0, "points": len(export)}
 
 
+def train_ratan(model_cfg):
+    """Load pre-computed RATAN predictions from JSON."""
+    mid = model_cfg["id"]
+    ticker = model_cfg["ticker"]
+    freq = model_cfg["freq"]
+    horizon = model_cfg["horizon"]
+
+    pred_path = os.path.join(PRED_DIR, f"{mid}.json")
+    if not os.path.exists(pred_path):
+        print(f"  [{mid}] SKIP -- No pre-computed predictions at {pred_path}")
+        return None
+
+    with open(pred_path) as f:
+        data = json.load(f)
+
+    n = len(data)
+    print(f"  [{mid}] {ticker}/{freq}/t+{horizon} RATAN -- {n} points (pre-computed)")
+    return {"id": mid, "rmse": 0.0, "points": n}
+
+
 def train_all():
     """Execute the full model factory."""
     print("=" * 60)
-    print("MODEL FACTORY -- Training 15 Models")
+    print(f"MODEL FACTORY -- Training {len(MODEL_REGISTRY)} Models")
     print("=" * 60)
 
     results = []
@@ -251,6 +276,8 @@ def train_all():
             r = train_ensemble(cfg)
         elif cfg["engine"] == "VAR+LGBM":
             r = train_var_lgbm(cfg)
+        elif cfg["engine"] == "RATAN":
+            r = train_ratan(cfg)
         else:
             r = train_lgbm(cfg)
         if r:
@@ -263,7 +290,7 @@ def train_all():
         json.dump(log, f, indent=2)
 
     print(f"\n{'=' * 60}")
-    print(f"FACTORY COMPLETE: {len(results)}/15 models trained")
+    print(f"FACTORY COMPLETE: {len(results)}/{len(MODEL_REGISTRY)} models trained")
     print(f"Training log: {log_path}")
     return log
 

@@ -4,7 +4,7 @@ server.py -- Autonomous Live Backend v2
 Key improvements:
   - /api/live-prediction: Returns a fresh prediction with unique timestamp each call
   - /api/prediction-history: Returns a rolling log of all past predictions (the MOVING graph)
-  - Default retrain: Only 5 fast models (best per stock). POST /api/retrain-all for full 15.
+  - Default retrain: Only 5 fast models (best per stock). POST /api/retrain-all for full 25.
 """
 
 import os
@@ -20,7 +20,7 @@ from collections import deque
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from data_fetcher import fetch_all
-from model_factory import train_all, MODEL_REGISTRY, train_lgbm, train_var_lgbm
+from model_factory import train_all, MODEL_REGISTRY, train_lgbm, train_var_lgbm, train_ratan
 
 app = Flask(__name__)
 CORS(app)
@@ -39,6 +39,7 @@ pipeline_status = {
     "models_trained": 0,
     "schedule": "Every 1 hour",
     "mode": "fast",
+    "current_regime": None,
 }
 
 # Fast models: best 1 per stock (minute-level preferred for speed)
@@ -132,6 +133,8 @@ def run_fast_pipeline():
         for cfg in FAST_MODELS:
             if cfg["engine"] == "VAR+LGBM":
                 train_var_lgbm(cfg)
+            elif cfg["engine"] == "RATAN":
+                train_ratan(cfg)
             else:
                 train_lgbm(cfg)
             count += 1
@@ -145,7 +148,7 @@ def run_fast_pipeline():
 
 
 def run_full_pipeline():
-    """Fetch data + train ALL 15 models."""
+    """Fetch data + train ALL 25 models."""
     if pipeline_status["is_running"]:
         return
     pipeline_status["is_running"] = True
@@ -169,6 +172,14 @@ def run_full_pipeline():
 
 @app.route("/api/status", methods=["GET"])
 def get_status():
+    """Return pipeline status with current market regime."""
+    regime_path = os.path.join(PRED_DIR, "current_regime.json")
+    if os.path.exists(regime_path):
+        with open(regime_path) as f:
+            regime_data = json.load(f)
+        pipeline_status["current_regime"] = regime_data.get("regime", None)
+    else:
+        pipeline_status["current_regime"] = None
     return jsonify(pipeline_status)
 
 
@@ -223,6 +234,19 @@ def get_training_log():
     return jsonify(data)
 
 
+@app.route("/api/attention-map/<model_id>", methods=["GET"])
+def get_attention_map(model_id):
+    """Return cross-asset attention weights for a RATAN model."""
+    if not model_id.startswith("R"):
+        return jsonify({"error": f"{model_id} is not a RATAN model"}), 400
+    path = os.path.join(PRED_DIR, f"{model_id}_attention.json")
+    if not os.path.exists(path):
+        return jsonify({"error": f"No attention map for {model_id}"}), 404
+    with open(path) as f:
+        data = json.load(f)
+    return jsonify(data)
+
+
 @app.route("/api/sync", methods=["POST"])
 def sync_fast():
     """Quick sync: fetch + retrain 5 best models."""
@@ -235,7 +259,7 @@ def sync_fast():
 
 @app.route("/api/retrain-all", methods=["POST"])
 def retrain_all():
-    """Full retrain: fetch + retrain ALL 15 models."""
+    """Full retrain: fetch + retrain ALL 25 models."""
     if pipeline_status["is_running"]:
         return jsonify({"status": "already_running"}), 409
     t = threading.Thread(target=run_full_pipeline, daemon=True)
