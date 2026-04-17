@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 docs/gamma_ppt_prompt.md
+CLAUDE.md
+docs/superpowers/
