@@ -25,9 +25,6 @@ const Landing = () => {
           <Link to="/dashboard" className="s-btn s-btn-primary" style={{ padding: '0.75rem 1.5rem', fontSize: '1rem' }}>
             Open Platform <ArrowRight size={16} />
           </Link>
-          <Link to="/story" className="s-btn s-btn-secondary" style={{ padding: '0.75rem 1.5rem', fontSize: '1rem' }}>
-            Story of Stalker
-          </Link>
           <a href="#features" className="s-btn s-btn-secondary" style={{ padding: '0.75rem 1.5rem', fontSize: '1rem' }}>
              Documentation
           </a>
