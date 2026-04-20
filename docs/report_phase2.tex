@@ -1,8 +1,12 @@
-\documentclass[journal,10pt,twocolumn]{IEEEtran}
+\documentclass[conference]{IEEEtran}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{graphicx}
 \usepackage{hyperref}
+\hypersetup{
+    colorlinks=false,
+    pdfborder={0 0 0}
+}
 \usepackage{booktabs}
 \usepackage{cite}
 \usepackage{tikz}
@@ -16,20 +20,15 @@
 
 \author{
 \IEEEauthorblockN{Vaiditya Tanwar}
-\IEEEauthorblockA{School of Technology \\
-Rishihood University \\
-Sonipat, India \\
+\IEEEauthorblockA{School of Technology, Rishihood University \\
 EN No: 230086 \\
-vaidityatanwar2207@gmail.com}
+vaiditya.t23csai@nst.rishihood.edu.in}
 \and
 \IEEEauthorblockN{Yashi Gupta}
-\IEEEauthorblockA{School of Technology \\
-Rishihood University \\
-Sonipat, India \\
+\IEEEauthorblockA{School of Technology, Rishihood University \\
 EN No: 230072 \\
 yashi.g23csai@nst.rishihood.edu.in}
 }
-
 \begin{document}
 
 \maketitle
@@ -52,7 +51,7 @@ Deep learning, in principle, overcomes these limitations through continuous, dif
 
 Our central thesis is that generic deep learning architectures fail in finance not because neural networks are fundamentally unsuited to the domain, but because they ignore the structural priors that decades of financial econometrics have established. We propose \textbf{RATAN} (Regime-Aware Temporal Attention Network), an architecture in which three independently motivated financial principles are compiled directly into the computational graph:
 
-\begin{enumerate}[leftmargin=*]
+\begin{enumerate}[leftmargin=*, itemsep=6pt, topsep=4pt]
     \item \textbf{Regime-Gated Temporal Convolution (RGTC)}: Market regime state, detected via CUSUM change-point analysis, multiplicatively gates the output of temporal convolution layers. This forces the network to learn regime-specific feature detectors rather than a single set of filters that must simultaneously explain bull, bear, and transitional dynamics.
     \item \textbf{Cross-Asset Spectral Attention (CASA)}: Multi-head attention is augmented with a bias term derived from the Marchenko-Pastur denoised empirical correlation matrix. This structural injection ensures that the attention mechanism preferentially routes information along genuine cross-asset channels while suppressing noise-induced spurious correlations.
     \item \textbf{Volatility-Weighted Huber Loss (VWHL)}: The loss function scales inversely with local realized volatility, preventing gradient domination by inherently unpredictable high-variance periods and improving optimization conditioning.
