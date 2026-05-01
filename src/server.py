@@ -247,6 +247,59 @@ def get_attention_map(model_id):
     return jsonify(data)
 
 
+@app.route("/predict/hybrid/<ticker>", methods=["GET"])
+def predict_hybrid(ticker):
+    """Return the RLSH hybrid prediction for a ticker using saved probs."""
+    ticker = ticker.upper()
+    valid = {"SPY", "AAPL", "MSFT", "JPM", "GLD"}
+    if ticker not in valid:
+        return jsonify({"error": f"Unknown ticker {ticker}. Valid: {sorted(valid)}"}), 400
+
+    ATTN = os.path.join(BASE_DIR, "data", "features", "attention_weights")
+    thetas = {"SPY": 0.35, "AAPL": 0.35, "MSFT": 0.45, "JPM": 0.40, "GLD": 0.40}
+
+    ratan_path = os.path.join(ATTN, f"ratan_probs_{ticker}.npy")
+    lgbm_path  = os.path.join(ATTN, f"lgbm_aug_probs_{ticker}.npy")
+    true_path  = os.path.join(ATTN, f"true_labels_{ticker}.npy")
+
+    if not os.path.exists(ratan_path):
+        return jsonify({"error": f"No RATAN probs for {ticker} — run NB16 first"}), 404
+
+    import numpy as np
+    pr = np.load(ratan_path)
+    pl = np.load(lgbm_path) if os.path.exists(lgbm_path) else pr
+    combo = 0.7 * pr + 0.3 * pl
+    conf  = combo.max(1)
+    pred  = combo.argmax(1)
+    theta = thetas[ticker]
+    mask  = conf >= theta
+
+    label_map = {0: "sell", 1: "hold", 2: "buy"}
+    last_pred  = int(pred[-1])
+    last_conf  = float(conf[-1])
+    decision   = label_map[last_pred] if last_conf >= theta else "abstain"
+
+    result = {
+        "ticker": ticker,
+        "theta": theta,
+        "last_prediction": label_map[last_pred],
+        "last_confidence": round(last_conf, 4),
+        "decision": decision,
+        "coverage": round(float(mask.mean()), 4),
+        "n_test": int(len(pred)),
+    }
+
+    if os.path.exists(true_path):
+        true = np.load(true_path)
+        acc = float((pred == true).mean())
+        dm  = mask & (true != 1) & (pred != 1)
+        da  = float(((pred[dm] > 1) == (true[dm] > 1)).mean()) if dm.sum() > 5 else 0.0
+        result["backtest_accuracy"] = round(acc, 4)
+        result["backtest_dir_accuracy"] = round(da, 4)
+
+    return jsonify(result)
+
+
 @app.route("/api/sync", methods=["POST"])
 def sync_fast():
     """Quick sync: fetch + retrain 5 best models."""
